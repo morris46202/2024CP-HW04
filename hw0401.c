@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<stdint.h>
 #include<getopt.h>
 #include<string.h>
 #include<unistd.h>
@@ -17,8 +18,8 @@ typedef struct return_data{
     unsigned long stime;
     int64_t cutime;
     int64_t cstime;
-    u_int64_t starttime;
-    u_int32_t vsize;
+    uint64_t starttime;
+    uint32_t vsize;
 
     
 
@@ -30,6 +31,7 @@ void print_usage();
 void show_proc();
 rd *get_cpu_data( int32_t pid );
 int find_pid( int32_t pid );
+char *get_name( int32_t pid );
 
 int main( int argc , char *argv[] )
 {
@@ -104,16 +106,26 @@ int main( int argc , char *argv[] )
     // print data
     for(int i = 0; i < count || count == -1; i++)
     {
-        printf("PID   NAME      state   CPU     MEM\n");
+        // clear screen
+        //printf("\033[2J");
+        system("clear");// clear screen
+        //printf("\033[2J");
+        system("clear");
+        printf("PID    NAME                state     CPU        MEM\n");
         if(p_flag == 1)
         {
-            printf("pid: %d\n", cpu_data->pid);
-            printf("state: %c\n", cpu_data->state);
-            printf("utime: %lu\n", cpu_data->utime);
-            printf("stime: %lu\n", cpu_data->stime);
-            printf("cutime: %ld\n", cpu_data->cutime);
-            printf("cstime: %ld\n", cpu_data->cstime);
-            printf("vsize: %u\n", cpu_data->vsize);
+            //XD printf("pid: %d\n", atoi(ptr->d_name));
+            cpu_data = get_cpu_data(pid);
+            //HI
+            char *name = malloc(100);
+            name = get_name(pid);
+            double all_time = cpu_data->utime + cpu_data->stime + cpu_data->cutime + cpu_data->cstime;
+            double sec = (cpu_data->uptime - (cpu_data->starttime / HZ)) ;
+            double cpu_usage = ((all_time / HZ) / sec) *1000;
+            
+            printf("%-7d%-20s%-9c", cpu_data->pid, name, cpu_data->state);
+            printf("%5.2f%% ", cpu_usage);
+            printf("%10d\n" , (int)(cpu_data->vsize/1024.0));
         }
         else
         {
@@ -126,20 +138,24 @@ int main( int argc , char *argv[] )
             {
                 if(ptr->d_name[0] >= '0' && ptr->d_name[0] <= '9')
                 {
-                    XD printf("pid: %d\n", atoi(ptr->d_name));
+                    //XD printf("pid: %d\n", atoi(ptr->d_name));
                     cpu_data = get_cpu_data(atoi(ptr->d_name));
-                    HI
+                    //HI
+                    char *name = malloc(100);
+                    name = get_name(atoi(ptr->d_name));
                     double all_time = cpu_data->utime + cpu_data->stime + cpu_data->cutime + cpu_data->cstime;
                     double sec = (cpu_data->uptime - (cpu_data->starttime / HZ)) ;
-                    double cpu_usage = ((all_time / HZ) / sec) *100;
-                    printf("%d     %s      %c      %f     %f\n", cpu_data->pid, ptr->d_name, cpu_data->state, cpu_usage, cpu_data->vsize/1024.0);
+                    double cpu_usage = ((all_time / HZ) / sec) *1000;
+                    
+                    printf("%-7d%-20s%-9c", cpu_data->pid, name, cpu_data->state);
+                    printf("%5.2f%% ", cpu_usage);
+                    printf("%10d\n" , (int)(cpu_data->vsize/1024.0));
                 }
             }
             closedir(dir);
         }
         sleep(time_interval);
-        // clear screen
-        printf("\033[2J");
+        
     }
 
 
@@ -181,30 +197,34 @@ rd *get_cpu_data( int32_t mypid )
     }
     
     // read file
-    int32_t pid, ppid, pgrp, session, tty_nr, tpgid, flags;
+    int32_t pid, ppid, pgrp, session, tty_nr, tpgid;
+    uint32_t flags;
     char comm[100], state;
-    unsigned long minflt, cminflt, majflt, cmajflt, utime, stime;
+    uint32_t minflt, cminflt, majflt, cmajflt, utime, stime;
     int64_t cutime, cstime;
     int32_t priority, nice, num_threads;
     int32_t itrealvalue;
-    unsigned long starttime;
-    unsigned int vsize;
+    uint64_t starttime;
+    uint32_t vsize;
     
-    fscanf(fp, "%d %s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %d %d %d %d %ld %d %d %lu %u",
-            &pid, comm, &state, &ppid, &pgrp, &session, &tty_nr, &tpgid, &flags,
-            &minflt, &cminflt, &majflt, &cmajflt, &utime, &stime, &cutime, &cstime,
-            &priority, &nice, &num_threads, &itrealvalue, &starttime, &vsize);
+    fscanf(fp, "%d %s %c %d %d %d %d %d", &pid,comm, &state, &ppid, &pgrp, &session, &tty_nr, &tpgid);
+    fscanf(fp, "%u",&flags);
+    fscanf(fp, "%u %u %u %u %u %u",&minflt, &cminflt, &majflt, &cmajflt, &utime, &stime);
+    fscanf(fp, "%ld %ld",  &cutime, &cstime);
+    fscanf(fp, "%d %d %d %d", &priority, &nice, &num_threads, &itrealvalue);
+    fscanf(fp, "%lu %u ",&starttime, &vsize);
     
-    XD printf("pid: %d\n", pid);
+    
+    // XD printf("pid: %d\n", pid);
 
-    XD printf("state: %c\n", state);
+    // XD printf("state: %c\n", state);
 
-    XD printf("utime: %lu\n", utime);
-    XD printf("stime: %lu\n", stime);
-    XD printf("cutime: %ld\n", cutime);
-    XD printf("cstime: %ld\n", cstime);
-    XD printf("starttime: %lu\n", starttime);
-    XD printf("vsize: %u\n", vsize);
+    // XD printf("utime: %u\n", utime);
+    // XD printf("stime: %u\n", stime);
+    // XD printf("cutime: %ld\n", cutime);
+    // XD printf("cstime: %ld\n", cstime);
+    // XD printf("starttime: %lu\n", starttime);
+    // XD printf("vsize: %u\n", vsize);
 
     fclose(fp);
 
@@ -245,5 +265,24 @@ int find_pid( int32_t pid )
 }
 
 
+// use pid to get the name of the process
+char *get_name( int32_t pid)
+{
+    char path[100];
+    sprintf(path, "/proc/%d/stat",pid);
+    FILE *fp = fopen(path, "r");
+    if(fp == NULL)
+    {
+        printf("Error: cannot open file\n");
+        return NULL;
+    }
+    
+    // read file
+    int32_t mypid;
+    char *comm = malloc(100);
+    fscanf(fp, "%d %s", &mypid,comm);
+    fclose(fp);
+    return comm;
+}
 
 
